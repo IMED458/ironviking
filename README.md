@@ -1,4 +1,3 @@
-
 <html lang="ka">
 <head>
   <meta charset="UTF-8" />
@@ -52,10 +51,24 @@
 
     function addOneMonthExact(dateInput) {
       const d = new Date(dateInput);
-      const originalDay = d.getDate();
-      d.setMonth(d.getMonth() + 1);
-      if (d.getDate() !== originalDay) d.setDate(0);
-      return d;
+      const result = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+      const originalDay = result.getDate();
+      result.setMonth(result.getMonth() + 1);
+      if (result.getDate() !== originalDay) result.setDate(0);
+      return result;
+    }
+
+    function toDateInputValue(dateInput) {
+      const d = new Date(dateInput);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function dateInputToISO(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
     }
 
     function checkAuth(user) {
@@ -380,7 +393,8 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
         await addDoc(collection(db, "members"), m);
         showToast("დარეგისტრირდა!");
         if (m.email) setTimeout(() => sendWelcomeEmail(m), 1000);
-      } catch {
+      } catch (e) {
+        console.error("createMember error:", e);
         showToast("შეცდომა", 'error');
       }
     }
@@ -495,13 +509,13 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
       if (!m) return;
 
       const start = new Date();
+      start.setHours(12, 0, 0, 0);
       const end = addOneMonthExact(start);
-      let visits = null;
 
+      let visits = null;
       if (m.subscriptionType === '8visits') visits = 8;
       else if (m.subscriptionType === '12visits') visits = 12;
-      else if (m.subscriptionType === 'unlimited' || m.subscriptionType === 'morning') visits = null;
-      else visits = null;
+      else if (m.subscriptionType === 'unlimited') visits = null;
 
       const updated = {
         ...m,
@@ -523,7 +537,7 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
       const m = window.members.find(x => x.id === id);
       if (!m) return;
 
-      const endDate = m.subscriptionEndDate ? new Date(m.subscriptionEndDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const endDate = m.subscriptionEndDate ? toDateInputValue(m.subscriptionEndDate) : toDateInputValue(new Date());
       const div = document.createElement('div');
       div.className = 'edit-form';
       div.innerHTML = `
@@ -590,7 +604,7 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
         note: document.getElementById(`e_note_${id}`).value.trim() || null,
         subscriptionType: document.getElementById(`e_subtype_${id}`).value,
         subscriptionPrice: parseFloat(document.getElementById(`e_price_${id}`).value) || 0,
-        subscriptionEndDate: new Date(endDate + 'T00:00:00').toISOString(),
+        subscriptionEndDate: dateInputToISO(endDate),
         remainingVisits: document.getElementById(`e_visits_${id}`).value === '' ? null : parseInt(document.getElementById(`e_visits_${id}`).value),
         status: document.getElementById(`e_status_${id}`).value
       };
@@ -738,7 +752,6 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
         '8visits':'8 ვიზიტი',
         '12visits':'12 ვიზიტი',
         'unlimited':'ულიმიტო',
-        'morning':'დილის ულიმიტო (ძველი)',
         'other':'სხვა'
       };
       return map[t] || t;
@@ -787,7 +800,9 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
 
         try {
           const start = new Date();
-          let end = new Date();
+          start.setHours(12, 0, 0, 0);
+
+          let end = new Date(start);
           let visits = null;
           let price = window.selectedSubscription.price;
           let type = window.selectedSubscription.type;
@@ -812,7 +827,9 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
               return;
             }
             price = cp;
-            end.setDate(start.getDate() + cd);
+            end = new Date(start);
+            end.setDate(end.getDate() + cd);
+            end.setHours(12, 0, 0, 0);
             visits = cv;
             type = desc;
           }
@@ -1087,3 +1104,4 @@ ${member.remainingVisits != null ? `🔢 ვიზიტების რაო�
   </div>
 </body>
 </html>
+```
